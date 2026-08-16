@@ -120,7 +120,7 @@
       display: none;
     }
 
-    /* Overlay Viewfinder Box & Semi-transparent Dark Layer (PRD Section 4) */
+    /* Overlay Viewfinder Box & Semi-transparent Dark Layer */
     .viewfinder-overlay {
       position: absolute;
       top: 0;
@@ -270,7 +270,7 @@
       box-shadow: none;
     }
 
-    /* Progress & Status Card (PRD Section 3) */
+    /* Progress & Status Card */
     .status-card {
       background: var(--bg-card);
       border-radius: var(--radius-lg);
@@ -319,7 +319,7 @@
       box-shadow: 0 0 12px var(--accent-mint-glow);
     }
 
-    /* Puzzle Grid Dots Visualizer (PRD Section 3: 초록/회색 도트 그리드) */
+    /* Puzzle Grid Dots Visualizer */
     .grid-container {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
@@ -357,7 +357,7 @@
       100% { transform: scale(1); }
     }
 
-    /* Result Card (PRD Section 3: 읽기 전용 텍스트 영역 및 내보내기 버튼) */
+    /* Result Card */
     .result-card {
       background: var(--bg-card);
       border-radius: var(--radius-lg);
@@ -417,7 +417,7 @@
       min-width: 130px;
     }
 
-    /* Notice Banner (PRD Section 5: HTTPS/localhost 보안 안내) */
+    /* Notice Banner */
     .notice-banner {
       background: rgba(12, 239, 211, 0.08);
       border: 1px solid rgba(12, 239, 211, 0.2);
@@ -471,12 +471,12 @@
       </div>
     </header>
 
-    <!-- HTTPS Warning Notice (PRD Section 5) -->
+    <!-- HTTPS Warning Notice -->
     <div class="notice-banner" id="httpNotice">
-      <span>ℹ️ 모바일 카메라 스캔은 <strong>HTTPS</strong> 또는 <strong>localhost</strong> 환경에서만 동작합니다. (python -m http.server 활용 권장)</span>
+      <span>ℹ️ 모바일 카메라 스캔은 <strong>HTTPS</strong> 또는 <strong>localhost</strong> 환경에서만 동작합니다.</span>
     </div>
 
-    <!-- Scanner Viewport Card (PRD Section 3 & 4) -->
+    <!-- Scanner Viewport Card -->
     <div class="scanner-card">
       <div class="viewport-container">
         <video id="videoElement" playsinline muted webkit-playsinline></video>
@@ -508,7 +508,7 @@
       </div>
     </div>
 
-    <!-- Progress & Status Card (PRD Section 3) -->
+    <!-- Progress & Status Card -->
     <div class="status-card">
       <div class="status-header">
         <span class="status-text" id="statusMsg">카메라 준비 완료</span>
@@ -519,13 +519,13 @@
         <div class="progress-bar-fill" id="progressFill"></div>
       </div>
 
-      <!-- Puzzle Grid Dots (PRD Section 3: 수신 여부 색상 구별 도트 그리드) -->
+      <!-- Puzzle Grid Dots -->
       <div class="grid-container" id="gridContainer">
         <!-- Chunks indicators will be rendered here dynamically -->
       </div>
     </div>
 
-    <!-- Result Card (PRD Section 3: 읽기 전용 텍스트 영역 및 내보내기 버튼) -->
+    <!-- Result Card -->
     <div class="result-card">
       <div class="result-header">
         <h2>📄 수신 완료 원본 텍스트</h2>
@@ -585,12 +585,12 @@
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
 
-    // Check location protocol for notice (PRD Section 5)
+    // Check location protocol for notice
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
       document.getElementById('httpNotice').style.borderColor = 'rgba(239, 68, 68, 0.4)';
     }
 
-    // Toggle Camera Start / Stop (PRD Section 3)
+    // Toggle Camera Start / Stop
     toggleCameraBtn.addEventListener('click', () => {
       if (isScanning) {
         stopCamera();
@@ -599,7 +599,7 @@
       }
     });
 
-    // Start Camera Stream (PRD Section 3 & 5: getUserMedia & exception handling)
+    // Start Camera Stream
     async function startCamera() {
       try {
         statusMsg.textContent = "카메라를 연결하는 중...";
@@ -646,7 +646,7 @@
       }
     }
 
-    // Stop Camera Stream (PRD Section 3: 자원 절약을 위한 카메라 정지)
+    // Stop Camera Stream
     function stopCamera() {
       if (animFrameId) {
         cancelAnimationFrame(animFrameId);
@@ -669,7 +669,7 @@
       }
     }
 
-    // Optimized Mobile Camera Decoding Loop (jsQR CDN)
+    // Optimized Mobile Camera Decoding Loop
     function tick() {
       if (!isScanning) return;
 
@@ -706,7 +706,8 @@
       }
     }
 
-    // Robust Payload Parsing Logic (PRD Section 2: RG:<세션ID>:<인덱스>:<전체개수>:<내용>)
+    // Robust Payload Parsing Logic
+    // Format: RG:<SessionID>:<Index>:<TotalCount>:<Content>
     function parsePayload(rawText) {
       if (!rawText) return null;
 
@@ -719,7 +720,7 @@
       const sessionId = parts[1].trim();
       const index = parseInt(parts[2], 10);
       const totalCount = parseInt(parts[3], 10);
-      // Rejoin remaining parts in case content itself contains colons (PRD Section 2)
+      // Rejoin remaining parts in case content itself contains colons
       const content = parts.slice(4).join(":");
 
       if (!sessionId || isNaN(index) || isNaN(totalCount) || totalCount <= 0 || index < 0 || index >= totalCount) {
@@ -729,7 +730,7 @@
       return { sessionId, index, totalCount, content };
     }
 
-    // Handle Scanned QR Data (PRD Section 2 & 3: 세션 고정 및 중복/순서 뒤섞임 대응 Map 저장)
+    // Handle Scanned QR Data with Smart Auto-Session Reset!
     function handleScannedData(rawText) {
       if (isCompleted) return;
 
@@ -746,22 +747,31 @@
 
       const { sessionId, index, totalCount, content } = parsed;
 
-      // Lock session to first valid QR session ID (PRD Section 2)
-      if (currentSessionId === null) {
+      // Smart Auto Session Switch:
+      // If no session locked OR scanning a NEW session starting at index 0 (or new session QR scanned), auto reset session!
+      if (currentSessionId === null || (sessionId !== currentSessionId && index === 0)) {
         currentSessionId = sessionId;
         totalChunks = totalCount;
+        receivedChunks.clear();
+        isCompleted = false;
         
         sessionBadge.style.display = 'inline-flex';
         sessionIdText.textContent = sessionId;
+        completedBadge.style.display = 'none';
+        targetBox.classList.remove('completed');
         
         initGrid(totalCount);
       } else if (sessionId !== currentSessionId) {
-        // Ignore QR codes from a different session (PRD Section 2)
-        statusMsg.textContent = `⚠️ 현재 세션(${currentSessionId})과 다른 세션의 QR입니다.`;
+        // Different session notification
+        const now = Date.now();
+        if (now - lastNoticeTime > 2000) {
+          lastNoticeTime = now;
+          statusMsg.textContent = `⚠️ 현재 세션(${currentSessionId})과 다른 세션(${sessionId})입니다. '초기화'를 누르거나 1번 QR을 비춰주세요.`;
+        }
         return;
       }
 
-      // Check if chunk is new or duplicate (PRD Section 3: Map<인덱스, 내용> 저장)
+      // Check if chunk is new or duplicate
       if (!receivedChunks.has(index)) {
         receivedChunks.set(index, content);
         
@@ -772,7 +782,7 @@
         updateProgressUI();
         updateDot(index);
 
-        // Check if all chunks received (PRD Section 3)
+        // Check if all chunks received
         if (receivedChunks.size === totalChunks) {
           onComplete();
         }
@@ -785,7 +795,7 @@
       }
     }
 
-    // Initialize Puzzle Dots Grid (PRD Section 3)
+    // Initialize Puzzle Dots Grid
     function initGrid(count) {
       gridContainer.innerHTML = '';
       for (let i = 0; i < count; i++) {
@@ -797,7 +807,7 @@
       }
     }
 
-    // Update single dot state (PRD Section 3: 초록/회색 도트 구별)
+    // Update single dot state
     function updateDot(index) {
       const dot = document.getElementById(`dot-${index}`);
       if (dot) {
@@ -806,7 +816,7 @@
       }
     }
 
-    // Update Progress UI (PRD Section 3: 상태 텍스트, 퍼센트 기반 진행률 바)
+    // Update Progress UI
     function updateProgressUI() {
       const currentCount = receivedChunks.size;
       const percent = Math.floor((currentCount / totalChunks) * 100);
@@ -819,7 +829,7 @@
       }
     }
 
-    // All Chunks Collected Completion (PRD Section 3: 원본 텍스트 재조립 및 카메라 정지)
+    // All Chunks Collected Completion
     function onComplete() {
       isCompleted = true;
       stopCamera();
@@ -831,11 +841,11 @@
       }
       const fullAssembledText = fullTextParts.join('');
 
-      // Display result (PRD Section 3: 읽기 전용 텍스트 영역)
+      // Display result
       resultTextArea.value = fullAssembledText;
       resultTextArea.removeAttribute('readonly');
 
-      // Enable action buttons (PRD Section 3: 클립보드 복사, 파일 다운로드)
+      // Enable action buttons
       copyBtn.disabled = false;
       downloadBtn.disabled = false;
       completedBadge.style.display = 'inline-flex';
@@ -850,7 +860,7 @@
       }
     }
 
-    // Clipboard Copy (PRD Section 3: '클립보드 복사')
+    // Clipboard Copy
     copyBtn.addEventListener('click', async () => {
       const text = resultTextArea.value;
       if (!text) return;
@@ -873,7 +883,7 @@
       }
     });
 
-    // File Download (.txt) (PRD Section 3: '파일 다운로드')
+    // File Download (.txt)
     downloadBtn.addEventListener('click', () => {
       const text = resultTextArea.value;
       if (!text) return;
@@ -890,7 +900,7 @@
       URL.revokeObjectURL(url);
     });
 
-    // Full Reset (PRD Section 3: '초기화')
+    // Full Reset
     resetBtn.addEventListener('click', () => {
       if (receivedChunks.size > 0 && !confirm("현재 진행 중인 상태를 초기화하시겠습니까?")) {
         return;
