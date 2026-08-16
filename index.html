@@ -479,7 +479,7 @@
     <!-- Scanner Viewport Card -->
     <div class="scanner-card">
       <div class="viewport-container">
-        <video id="videoElement" playsinline muted></video>
+        <video id="videoElement" playsinline muted webkit-playsinline></video>
         <canvas id="canvasElement"></canvas>
 
         <div class="camera-placeholder" id="cameraPlaceholder">
@@ -574,11 +574,16 @@
     let stream = null;
     let isScanning = false;
     let animFrameId = null;
+    let lastInvalidFormatNoticeTime = 0;
 
     let currentSessionId = null;
     let totalChunks = null;
     let receivedChunks = new Map(); // Map<index (number), content (string)>
     let isCompleted = false;
+
+    // Ensure playsinline for iOS Safari
+    video.setAttribute('playsinline', 'true');
+    video.setAttribute('webkit-playsinline', 'true');
 
     // Check location protocol for notice
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
@@ -664,18 +669,32 @@
       }
     }
 
-    // Camera Frame Decoding Loop
+    // Optimized Mobile Camera Decoding Loop
     function tick() {
       if (!isScanning) return;
 
       if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        canvas.height = video.videoHeight;
-        canvas.width = video.videoWidth;
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Downscale high-resolution mobile camera frames to max 640px for ultra-fast jsQR processing
+        const maxDimension = 640;
+        let w = video.videoWidth;
+        let h = video.videoHeight;
+        if (w > maxDimension || h > maxDimension) {
+          if (w > h) {
+            h = Math.round((h * maxDimension) / w);
+            w = maxDimension;
+          } else {
+            w = Math.round((w * maxDimension) / h);
+            h = maxDimension;
+          }
+        }
 
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        canvas.width = w;
+        canvas.height = h;
+        ctx.drawImage(video, 0, 0, w, h);
+
+        const imageData = ctx.getImageData(0, 0, w, h);
         const code = jsQR(imageData.data, imageData.width, imageData.height, {
-          inversionAttempts: "dontInvert",
+          inversionAttempts: "attemptBoth",
         });
 
         if (code && code.data) {
@@ -714,7 +733,16 @@
       if (isCompleted) return;
 
       const parsed = parsePayload(rawText);
-      if (!parsed) return;
+      if (!parsed) {
+        // Show feedback if a non-RG format QR code is detected
+        const now = Date.now();
+        if (now - lastInvalidFormatNoticeTime > 2500) {
+          lastInvalidFormatNoticeTime = now;
+          const snippet = rawText.length > 25 ? rawText.substring(0, 25) + '...' : rawText;
+          statusMsg.textContent = `⚠️ 규격 외 QR 스캔됨 ("${snippet}") - RG:로 시작해야 합니다`;
+        }
+        return;
+      }
 
       const { sessionId, index, totalCount, content } = parsed;
 
@@ -729,7 +757,7 @@
         initGrid(totalCount);
       } else if (sessionId !== currentSessionId) {
         // Ignore QR codes from a different session
-        statusMsg.textContent = `⚠️ 현재 세션(${currentSessionId})과 다른 QR 코드입니다.`;
+        statusMsg.textContent = `⚠️ 현재 세션(${currentSessionId})과 다른 세션의 QR입니다.`;
         return;
       }
 
