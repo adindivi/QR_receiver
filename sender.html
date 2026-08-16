@@ -191,12 +191,12 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
-    /* White Background Card with Quiet Zone Margin like sample photo */
+    /* Ultra-clean White Quiet Zone Card */
     .qr-stage {
-      width: 300px;
+      width: 320px;
       background: #ffffff;
-      padding: 28px 24px 20px 24px;
-      border-radius: 8px;
+      padding: 36px 32px 24px 32px;
+      border-radius: 12px;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -212,21 +212,22 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 18px;
     }
 
     .qr-frame-item img, .qr-frame-item canvas {
-      width: 230px !important;
-      height: 230px !important;
+      width: 240px !important;
+      height: 240px !important;
       image-rendering: pixelated;
+      image-rendering: crisp-edges;
     }
 
     /* Caption below QR like sample image: RG CEA7 | 3 / 86 */
     .qr-caption {
-      font-size: 1.05rem;
-      font-weight: 700;
+      font-size: 1.1rem;
+      font-weight: 800;
       color: #111827;
-      letter-spacing: 0.5px;
+      letter-spacing: 1px;
       font-family: monospace, sans-serif;
     }
 
@@ -352,10 +353,10 @@
       <div class="controls-grid">
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
-            <label for="chunkSizeInput">조각 용량 (권장: 60 Byte)</label>
-            <span class="val-label" id="chunkSizeLabel">60 Byte</span>
+            <label for="chunkSizeInput">조각 용량 (스캔 최적: 30 Byte)</label>
+            <span class="val-label" id="chunkSizeLabel">30 Byte</span>
           </div>
-          <input type="range" id="chunkSizeInput" min="30" max="150" value="60">
+          <input type="range" id="chunkSizeInput" min="15" max="100" value="30">
         </div>
 
         <div class="control-item">
@@ -383,7 +384,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container (Sample Image Layout with White Margin Quiet Zone & Caption) -->
+      <!-- QR Stage Container (36px Quiet Zone Margin & 30-Byte Low Density QR) -->
       <div class="qr-stage" id="qrStage">
         <!-- Pre-rendered QR frames will be injected here -->
       </div>
@@ -501,7 +502,7 @@
       return unescape(encodeURIComponent(str));
     }
 
-    // Prepare QR Chunks & Pre-render All Frames with Quiet Zone & Caption
+    // Prepare QR Chunks & Pre-render Low-Density Clean Frames
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
@@ -529,7 +530,7 @@
       qrStage.innerHTML = "";
       frameElements = [];
 
-      // Render QR Frames with Quiet Zone Margin + Caption ("RG CEA7 | 3 / 86")
+      // Direct DOM rendering with Version 3/4 low density & wide quiet zone
       qrObjects.forEach((rawPayload, idx) => {
         const frameItem = document.createElement("div");
         frameItem.className = "qr-frame-item";
@@ -541,8 +542,8 @@
         try {
           new QRCode(qrContainer, {
             text: safePayload,
-            width: 230,
-            height: 230,
+            width: 240,
+            height: 240,
             correctLevel: QRCode.CorrectLevel.L
           });
         } catch (err) {
