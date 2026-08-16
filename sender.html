@@ -202,11 +202,21 @@
       justify-content: center;
       box-shadow: 0 0 24px var(--accent-mint-glow);
       position: relative;
+      overflow: hidden;
     }
 
-    .qr-stage img, .qr-stage canvas {
-      max-width: 100%;
-      max-height: 100%;
+    .qr-frame-item {
+      width: 228px;
+      height: 228px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .qr-frame-item img, .qr-frame-item canvas {
+      width: 228px !important;
+      height: 228px !important;
+      image-rendering: pixelated;
     }
 
     .player-info {
@@ -331,18 +341,18 @@
       <div class="controls-grid">
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
-            <label for="chunkSizeInput">QR 조각 크기</label>
-            <span class="val-label" id="chunkSizeLabel">60자</span>
+            <label for="chunkSizeInput">QR 조각 크기 (권장: 40~50자)</label>
+            <span class="val-label" id="chunkSizeLabel">45자</span>
           </div>
-          <input type="range" id="chunkSizeInput" min="20" max="150" value="60">
+          <input type="range" id="chunkSizeInput" min="20" max="120" value="45">
         </div>
 
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
-            <label for="fpsInput">전송 속도 (FPS)</label>
-            <span class="val-label" id="fpsLabel">4 FPS</span>
+            <label for="fpsInput">전송 속도 (권장: 3 FPS)</label>
+            <span class="val-label" id="fpsLabel">3 FPS</span>
           </div>
-          <input type="range" id="fpsInput" min="1" max="10" value="4">
+          <input type="range" id="fpsInput" min="1" max="8" value="3">
         </div>
       </div>
 
@@ -362,9 +372,9 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container -->
+      <!-- QR Stage Container (Pre-rendered Canvas Elements) -->
       <div class="qr-stage" id="qrStage">
-        <div id="qrcode"></div>
+        <!-- Pre-rendered QR frames will be injected here -->
       </div>
 
       <div class="btn-group">
@@ -392,7 +402,7 @@
     const playerStatus = document.getElementById('playerStatus');
     const chunkCounter = document.getElementById('chunkCounter');
     const playerProgress = document.getElementById('playerProgress');
-    const qrcodeContainer = document.getElementById('qrcode');
+    const qrStage = document.getElementById('qrStage');
     const playBtn = document.getElementById('playBtn');
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
@@ -401,6 +411,7 @@
     let sessionId = "";
     let chunks = [];
     let qrObjects = [];
+    let frameElements = [];
     let currentIndex = 0;
     let isPlaying = false;
     let playIntervalId = null;
@@ -442,7 +453,6 @@
       const reader = new FileReader();
       reader.onload = (e) => {
         textInput.value = e.target.result;
-        // Auto trigger QR prep
         prepareQRVideo();
       };
       reader.onerror = () => {
@@ -461,10 +471,11 @@
       return unescape(encodeURIComponent(str));
     }
 
-    // Prepare QR Chunks & Start Player
+    // Prepare QR Chunks & Pre-render All Frames (Zero-Flicker Engine)
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
+      stopPlayback();
       const rawText = textInput.value;
       if (!rawText || rawText.trim().length === 0) {
         alert("전송할 파일 또는 텍스트를 입력해 주세요!");
@@ -477,7 +488,6 @@
       const chunkSize = parseInt(chunkSizeInput.value, 10);
       chunks = [];
 
-      // Split raw text into chunks of chunkSize
       for (let i = 0; i < rawText.length; i += chunkSize) {
         chunks.push(rawText.substring(i, i + chunkSize));
       }
@@ -489,6 +499,43 @@
         return `RG:${sessionId}:${index}:${totalCount}:${content}`;
       });
 
+      // Clear QR Stage
+      qrStage.innerHTML = "";
+      frameElements = [];
+
+      // Create hidden temp container for pre-rendering
+      const tempDiv = document.createElement("div");
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      document.body.appendChild(tempDiv);
+
+      qrObjects.forEach((rawPayload, idx) => {
+        tempDiv.innerHTML = "";
+        const safePayload = toUTF8(rawPayload);
+
+        new QRCode(tempDiv, {
+          text: safePayload,
+          width: 228,
+          height: 228,
+          correctLevel: QRCode.CorrectLevel.L
+        });
+
+        const frameItem = document.createElement("div");
+        frameItem.className = "qr-frame-item";
+        frameItem.style.display = idx === 0 ? "flex" : "none";
+
+        // Grab generated img or canvas
+        const imgOrCanvas = tempDiv.querySelector("img") || tempDiv.querySelector("canvas");
+        if (imgOrCanvas) {
+          frameItem.appendChild(imgOrCanvas.cloneNode(true));
+        }
+
+        qrStage.appendChild(frameItem);
+        frameElements.push(frameItem);
+      });
+
+      document.body.removeChild(tempDiv);
+
       currentIndex = 0;
       playerCard.style.opacity = '1';
       playerCard.style.pointerEvents = 'auto';
@@ -497,37 +544,23 @@
       startPlayback();
     }
 
-    // Render single QR frame
+    // Zero-Flicker Frame Switching
     function renderFrame(index) {
-      if (qrObjects.length === 0) return;
+      if (frameElements.length === 0) return;
 
       currentIndex = index;
-      const total = qrObjects.length;
-      const rawPayload = qrObjects[index];
+      const total = frameElements.length;
 
-      try {
-        // Clear previous QR element
-        qrcodeContainer.innerHTML = "";
-        
-        // Encode payload cleanly to UTF-8
-        const safePayload = toUTF8(rawPayload);
-
-        new QRCode(qrcodeContainer, {
-          text: safePayload,
-          width: 228,
-          height: 228,
-          correctLevel: QRCode.CorrectLevel.L
-        });
-      } catch (err) {
-        console.error("QR Rendering Error:", err);
-        playerStatus.textContent = "⚠️ 조각 크기를 더 줄여주세요";
+      // Instant show/hide without innerHTML clearing
+      for (let i = 0; i < total; i++) {
+        frameElements[i].style.display = (i === index) ? "flex" : "none";
       }
 
       chunkCounter.textContent = `${index + 1} / ${total}`;
       playerProgress.style.width = `${((index + 1) / total) * 100}%`;
       
       if (isPlaying) {
-        playerStatus.textContent = "🛵 QR 연속 재생 중...";
+        playerStatus.textContent = "🛵 QR 연속 재생 중 (잔상 없음)";
       }
     }
 
@@ -543,7 +576,7 @@
       const intervalMs = Math.round(1000 / fps);
 
       playIntervalId = setInterval(() => {
-        currentIndex = (currentIndex + 1) % qrObjects.length;
+        currentIndex = (currentIndex + 1) % frameElements.length;
         renderFrame(currentIndex);
       }, intervalMs);
     }
@@ -569,13 +602,13 @@
 
     prevBtn.addEventListener('click', () => {
       stopPlayback();
-      const newIndex = (currentIndex - 1 + qrObjects.length) % qrObjects.length;
+      const newIndex = (currentIndex - 1 + frameElements.length) % frameElements.length;
       renderFrame(newIndex);
     });
 
     nextBtn.addEventListener('click', () => {
       stopPlayback();
-      const newIndex = (currentIndex + 1) % qrObjects.length;
+      const newIndex = (currentIndex + 1) % frameElements.length;
       renderFrame(newIndex);
     });
   </script>
