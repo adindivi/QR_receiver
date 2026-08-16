@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>배민 텍스트 배달 발신기 - QR 슬라이드/비디오 전송기</title>
-  <!-- Standard Reliable QRCode Library CDN -->
+  <!-- Standard QRCode Library CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
@@ -353,10 +353,10 @@
       <div class="controls-grid">
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
-            <label for="chunkSizeInput">조각 용량 (스캔 최적: 30 Byte)</label>
-            <span class="val-label" id="chunkSizeLabel">30 Byte</span>
+            <label for="chunkSizeInput">조각 용량 (스캔 최적: 25 Byte)</label>
+            <span class="val-label" id="chunkSizeLabel">25 Byte</span>
           </div>
-          <input type="range" id="chunkSizeInput" min="15" max="100" value="30">
+          <input type="range" id="chunkSizeInput" min="15" max="45" value="25">
         </div>
 
         <div class="control-item">
@@ -502,7 +502,7 @@
       return unescape(encodeURIComponent(str));
     }
 
-    // Prepare QR Chunks & Synchronous Pre-render Frames using standard QRCodejs
+    // Prepare QR Chunks with Automatic Overflow Self-Recovery Loop
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
@@ -518,57 +518,71 @@
         return;
       }
 
-      try {
-        sessionId = generateSessionId();
-        sessionIdDisplay.textContent = sessionId;
+      let maxBytes = parseInt(chunkSizeInput.value, 10);
+      let success = false;
+      let attempts = 0;
 
-        const maxBytes = parseInt(chunkSizeInput.value, 10);
-        chunks = splitByUTF8Bytes(rawText, maxBytes);
-        const totalCount = chunks.length;
+      while (!success && attempts < 5) {
+        attempts++;
+        try {
+          sessionId = generateSessionId();
+          sessionIdDisplay.textContent = sessionId;
 
-        qrObjects = chunks.map((content, index) => {
-          return `RG:${sessionId}:${index}:${totalCount}:${content}`;
-        });
+          chunks = splitByUTF8Bytes(rawText, maxBytes);
+          const totalCount = chunks.length;
 
-        qrStage.innerHTML = "";
-        frameElements = [];
-
-        qrObjects.forEach((rawPayload, idx) => {
-          const frameItem = document.createElement("div");
-          frameItem.className = "qr-frame-item";
-          frameItem.style.display = idx === 0 ? "flex" : "none";
-
-          const qrContainer = document.createElement("div");
-          const safePayload = toUTF8(rawPayload);
-
-          new QRCode(qrContainer, {
-            text: safePayload,
-            width: 240,
-            height: 240,
-            correctLevel: QRCode.CorrectLevel.L
+          qrObjects = chunks.map((content, index) => {
+            return `RG:${sessionId}:${index}:${totalCount}:${content}`;
           });
 
-          const caption = document.createElement("div");
-          caption.className = "qr-caption";
-          caption.textContent = `RG ${sessionId} | ${idx + 1} / ${totalCount}`;
+          qrStage.innerHTML = "";
+          frameElements = [];
 
-          frameItem.appendChild(qrContainer);
-          frameItem.appendChild(caption);
+          qrObjects.forEach((rawPayload, idx) => {
+            const frameItem = document.createElement("div");
+            frameItem.className = "qr-frame-item";
+            frameItem.style.display = idx === 0 ? "flex" : "none";
 
-          qrStage.appendChild(frameItem);
-          frameElements.push(frameItem);
-        });
+            const qrContainer = document.createElement("div");
+            const safePayload = toUTF8(rawPayload);
 
-        currentIndex = 0;
-        playerCard.style.opacity = '1';
-        playerCard.style.pointerEvents = 'auto';
+            new QRCode(qrContainer, {
+              text: safePayload,
+              width: 240,
+              height: 240,
+              correctLevel: QRCode.CorrectLevel.L
+            });
 
-        renderFrame(0);
-        startPlayback();
-      } catch (err) {
-        console.error("QR Generation error:", err);
-        alert("QR 비디오 생성 중 오류가 발생했습니다: " + err.message);
+            const caption = document.createElement("div");
+            caption.className = "qr-caption";
+            caption.textContent = `RG ${sessionId} | ${idx + 1} / ${totalCount}`;
+
+            frameItem.appendChild(qrContainer);
+            frameItem.appendChild(caption);
+
+            qrStage.appendChild(frameItem);
+            frameElements.push(frameItem);
+          });
+
+          success = true;
+        } catch (err) {
+          console.warn(`Attempt ${attempts} overflow with maxBytes=${maxBytes}:`, err);
+          // Automatically shrink chunk size to prevent code length overflow!
+          maxBytes = Math.max(15, Math.floor(maxBytes * 0.7));
+        }
       }
+
+      if (!success) {
+        alert("QR 비디오 생성에 실패했습니다. 입력 텍스트를 확인해 주세요.");
+        return;
+      }
+
+      currentIndex = 0;
+      playerCard.style.opacity = '1';
+      playerCard.style.pointerEvents = 'auto';
+
+      renderFrame(0);
+      startPlayback();
     }
 
     // Zero-Flicker Frame Switching
