@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>배민 텍스트 배달 발신기 - QR 슬라이드/비디오 전송기</title>
-  <!-- QRCode.js CDN for client-side QR generation -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <!-- QRCode.js Library CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
       --bg-main: #0a0f1d;
@@ -131,7 +131,7 @@
 
     textarea {
       width: 100%;
-      min-height: 100px;
+      min-height: 110px;
       background: #0a0f1d;
       border: 1px solid var(--border-color);
       border-radius: var(--radius-md);
@@ -321,8 +321,8 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
         </svg>
         <span id="fileNameDisplay" style="font-weight: 700;">여기를 클릭하거나 파일을 드래그하여 업로드하세요</span>
-        <span style="font-size: 0.78rem; color: var(--text-muted);">(.txt, 문서, 이미지 등 모든 파일 지원)</span>
-        <input type="file" id="fileInput">
+        <span style="font-size: 0.78rem; color: var(--text-muted);">(.txt, 문서 등 텍스트 파일 지원)</span>
+        <input type="file" id="fileInput" accept=".txt,.json,.csv,.md,.js,.html,.css,.xml,.log">
       </div>
 
       <textarea id="textInput" placeholder="또는 전송하고 싶은 텍스트를 직접 입력하거나 붙여넣으세요..."></textarea>
@@ -332,17 +332,17 @@
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
             <label for="chunkSizeInput">QR 조각 크기</label>
-            <span class="val-label" id="chunkSizeLabel">80자</span>
+            <span class="val-label" id="chunkSizeLabel">60자</span>
           </div>
-          <input type="range" id="chunkSizeInput" min="30" max="250" value="80">
+          <input type="range" id="chunkSizeInput" min="20" max="150" value="60">
         </div>
 
         <div class="control-item">
           <div style="display: flex; justify-content: space-between;">
             <label for="fpsInput">전송 속도 (FPS)</label>
-            <span class="val-label" id="fpsLabel">5 FPS</span>
+            <span class="val-label" id="fpsLabel">4 FPS</span>
           </div>
-          <input type="range" id="fpsInput" min="1" max="15" value="5">
+          <input type="range" id="fpsInput" min="1" max="10" value="4">
         </div>
       </div>
 
@@ -362,7 +362,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Canvas Container -->
+      <!-- QR Stage Container -->
       <div class="qr-stage" id="qrStage">
         <div id="qrcode"></div>
       </div>
@@ -398,20 +398,12 @@
     const nextBtn = document.getElementById('nextBtn');
 
     // App State
-    let payloadText = "";
     let sessionId = "";
     let chunks = [];
     let qrObjects = [];
     let currentIndex = 0;
     let isPlaying = false;
     let playIntervalId = null;
-
-    // QRCode Instance
-    let qrcode = new QRCode(qrcodeContainer, {
-      width: 228,
-      height: 228,
-      correctLevel: QRCode.CorrectLevel.L
-    });
 
     // Slider Label Sync
     chunkSizeInput.addEventListener('input', () => {
@@ -448,11 +440,15 @@
       fileNameDisplay.textContent = `📁 선택됨: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
       
       const reader = new FileReader();
-      // Check if text file or binary
       reader.onload = (e) => {
         textInput.value = e.target.result;
+        // Auto trigger QR prep
+        prepareQRVideo();
       };
-      reader.readAsText(file);
+      reader.onerror = () => {
+        alert("파일 읽기 중 오류가 발생했습니다.");
+      };
+      reader.readAsText(file, "UTF-8");
     }
 
     // Generate Random 4-character Hex Session ID
@@ -460,8 +456,15 @@
       return Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0');
     }
 
+    // Safe UTF-8 String for QRCode
+    function toUTF8(str) {
+      return unescape(encodeURIComponent(str));
+    }
+
     // Prepare QR Chunks & Start Player
-    generateBtn.addEventListener('click', () => {
+    generateBtn.addEventListener('click', prepareQRVideo);
+
+    function prepareQRVideo() {
       const rawText = textInput.value;
       if (!rawText || rawText.trim().length === 0) {
         alert("전송할 파일 또는 텍스트를 입력해 주세요!");
@@ -492,7 +495,7 @@
 
       renderFrame(0);
       startPlayback();
-    });
+    }
 
     // Render single QR frame
     function renderFrame(index) {
@@ -500,13 +503,32 @@
 
       currentIndex = index;
       const total = qrObjects.length;
-      const payload = qrObjects[index];
+      const rawPayload = qrObjects[index];
 
-      qrcode.makeCode(payload);
+      try {
+        // Clear previous QR element
+        qrcodeContainer.innerHTML = "";
+        
+        // Encode payload cleanly to UTF-8
+        const safePayload = toUTF8(rawPayload);
+
+        new QRCode(qrcodeContainer, {
+          text: safePayload,
+          width: 228,
+          height: 228,
+          correctLevel: QRCode.CorrectLevel.L
+        });
+      } catch (err) {
+        console.error("QR Rendering Error:", err);
+        playerStatus.textContent = "⚠️ 조각 크기를 더 줄여주세요";
+      }
 
       chunkCounter.textContent = `${index + 1} / ${total}`;
       playerProgress.style.width = `${((index + 1) / total) * 100}%`;
-      playerStatus.textContent = isPlaying ? "🛵 QR 연속 재생 중..." : "일시 정지";
+      
+      if (isPlaying) {
+        playerStatus.textContent = "🛵 QR 연속 재생 중...";
+      }
     }
 
     // Playback Loop
