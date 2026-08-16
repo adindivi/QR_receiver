@@ -372,7 +372,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container (Pre-rendered Canvas Elements) -->
+      <!-- QR Stage Container -->
       <div class="qr-stage" id="qrStage">
         <!-- Pre-rendered QR frames will be injected here -->
       </div>
@@ -461,7 +461,7 @@
       reader.readAsText(file, "UTF-8");
     }
 
-    // Split string into chunks by UTF-8 Byte Length (Safe for Korean & Emojis)
+    // Split string into chunks by UTF-8 Byte Length
     function splitByUTF8Bytes(str, maxBytes) {
       const chunks = [];
       let currentChunk = "";
@@ -490,7 +490,7 @@
       return unescape(encodeURIComponent(str));
     }
 
-    // Prepare QR Chunks & Pre-render All Frames
+    // Prepare QR Chunks & Pre-render All Frames Direct in DOM
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
@@ -518,38 +518,28 @@
       qrStage.innerHTML = "";
       frameElements = [];
 
-      // Create hidden temp container for pre-rendering
-      const tempDiv = document.createElement("div");
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      document.body.appendChild(tempDiv);
-
+      // Direct DOM rendering (Fixes blank canvas cloneNode issue!)
       qrObjects.forEach((rawPayload, idx) => {
-        tempDiv.innerHTML = "";
-        const safePayload = toUTF8(rawPayload);
-
-        new QRCode(tempDiv, {
-          text: safePayload,
-          width: 228,
-          height: 228,
-          correctLevel: QRCode.CorrectLevel.L
-        });
-
         const frameItem = document.createElement("div");
         frameItem.className = "qr-frame-item";
         frameItem.style.display = idx === 0 ? "flex" : "none";
 
-        // Grab generated img or canvas
-        const imgOrCanvas = tempDiv.querySelector("img") || tempDiv.querySelector("canvas");
-        if (imgOrCanvas) {
-          frameItem.appendChild(imgOrCanvas.cloneNode(true));
+        const safePayload = toUTF8(rawPayload);
+
+        try {
+          new QRCode(frameItem, {
+            text: safePayload,
+            width: 228,
+            height: 228,
+            correctLevel: QRCode.CorrectLevel.L
+          });
+        } catch (err) {
+          console.error("QR Generation error on frame", idx, err);
         }
 
         qrStage.appendChild(frameItem);
         frameElements.push(frameItem);
       });
-
-      document.body.removeChild(tempDiv);
 
       currentIndex = 0;
       playerCard.style.opacity = '1';
@@ -566,7 +556,7 @@
       currentIndex = index;
       const total = frameElements.length;
 
-      // Instant show/hide without innerHTML clearing
+      // Instant show/hide
       for (let i = 0; i < total; i++) {
         frameElements[i].style.display = (i === index) ? "flex" : "none";
       }
