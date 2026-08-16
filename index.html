@@ -581,9 +581,11 @@
     let receivedChunks = new Map(); // Map<index (number), content (string)>
     let isCompleted = false;
 
-    // Safe UTF-8 Decoder (Fixes garbled special characters like ì¹´ë©”ë ¼)
+    // Robust UTF-8 Decoder & BOM Stripper
     function decodeUTF8Safe(str) {
       if (!str) return str;
+      // Strip UTF-8 BOM (\uFEFF) and garbled BOM (ï»¿)
+      str = str.replace(/^\uFEFF/, '').replace(/^ï»¿/, '');
       try {
         return decodeURIComponent(escape(str));
       } catch (e) {
@@ -715,12 +717,13 @@
       }
     }
 
-    // Robust Payload Parsing Logic
+    // Robust Payload Parsing Logic with BOM Stripping
     // Format: RG:<SessionID>:<Index>:<TotalCount>:<Content>
     function parsePayload(rawText) {
       if (!rawText) return null;
 
-      const trimmed = rawText.trim();
+      // Clean UTF-8 BOM (\uFEFF) and garbled BOM (ï»¿) prepended by Windows Notepad
+      let trimmed = rawText.replace(/^\uFEFF/, '').replace(/^ï»¿/, '').trim();
       if (!trimmed.startsWith("RG:")) return null;
 
       const parts = trimmed.split(":");
@@ -729,14 +732,13 @@
       const sessionId = parts[1].trim();
       const index = parseInt(parts[2], 10);
       const totalCount = parseInt(parts[3], 10);
-      // Rejoin remaining parts in case content itself contains colons
       let content = parts.slice(4).join(":");
 
       if (!sessionId || isNaN(index) || isNaN(totalCount) || totalCount <= 0 || index < 0 || index >= totalCount) {
         return null;
       }
 
-      // Automatically decode garbled UTF-8 special characters back to clean Korean
+      // Robust UTF-8 Decoder (Fixes garbled Latin-1 UTF-8 special characters)
       content = decodeUTF8Safe(content);
 
       return { sessionId, index, totalCount, content };
@@ -751,8 +753,9 @@
         const now = Date.now();
         if (now - lastNoticeTime > 2500) {
           lastNoticeTime = now;
-          const snippet = rawText.length > 25 ? rawText.substring(0, 25) + '...' : rawText;
-          statusMsg.textContent = `⚠️ 규격 외 QR ("${snippet}") - RG:로 시작해야 합니다`;
+          let cleanSnippet = rawText.replace(/^\uFEFF/, '').replace(/^ï»¿/, '').trim();
+          cleanSnippet = cleanSnippet.length > 25 ? cleanSnippet.substring(0, 25) + '...' : cleanSnippet;
+          statusMsg.textContent = `⚠️ 규격 외 QR ("${cleanSnippet}") - RG:로 시작해야 합니다`;
         }
         return;
       }

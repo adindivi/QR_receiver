@@ -191,7 +191,7 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
-    /* White Quiet Zone Card (Identical to sample_qr.png layout) */
+    /* White Quiet Zone Card */
     .qr-stage {
       width: 320px;
       background: #ffffff;
@@ -222,7 +222,7 @@
       image-rendering: crisp-edges;
     }
 
-    /* Caption below QR like sample image: RG TEST | 1 / 1 */
+    /* Caption below QR */
     .qr-caption {
       font-size: 1.1rem;
       font-weight: 800;
@@ -464,7 +464,8 @@
       
       const reader = new FileReader();
       reader.onload = (e) => {
-        textInput.value = e.target.result;
+        // Strip UTF-8 BOM if present
+        textInput.value = e.target.result.replace(/^\uFEFF/, '').replace(/^ï»¿/, '');
         prepareQRVideo();
       };
       reader.onerror = () => {
@@ -479,6 +480,9 @@
       let currentChunk = "";
       const encoder = new TextEncoder();
       
+      // Strip UTF-8 BOM
+      str = str.replace(/^\uFEFF/, '').replace(/^ï»¿/, '');
+
       for (const char of str) {
         const testChunk = currentChunk + char;
         if (encoder.encode(testChunk).length > maxBytes) {
@@ -507,7 +511,8 @@
 
     function prepareQRVideo() {
       stopPlayback();
-      const rawText = textInput.value;
+      // Strip UTF-8 BOM
+      let rawText = textInput.value.replace(/^\uFEFF/, '').replace(/^ï»¿/, '');
       if (!rawText || rawText.trim().length === 0) {
         alert("전송할 파일 또는 텍스트를 입력해 주세요!");
         return;
@@ -567,7 +572,6 @@
           success = true;
         } catch (err) {
           console.warn(`Attempt ${attempts} overflow with maxBytes=${maxBytes}:`, err);
-          // Automatically shrink chunk size to prevent code length overflow!
           maxBytes = Math.max(15, Math.floor(maxBytes * 0.7));
         }
       }
