@@ -191,32 +191,43 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
+    /* White Background Card with Quiet Zone Margin like sample photo */
     .qr-stage {
-      width: 260px;
-      height: 260px;
+      width: 300px;
       background: #ffffff;
-      padding: 16px;
-      border-radius: 16px;
+      padding: 28px 24px 20px 24px;
+      border-radius: 8px;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 0 24px var(--accent-mint-glow);
+      box-shadow: 0 0 30px var(--accent-mint-glow);
       position: relative;
       overflow: hidden;
     }
 
     .qr-frame-item {
-      width: 228px;
-      height: 228px;
+      width: 100%;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
+      gap: 16px;
     }
 
     .qr-frame-item img, .qr-frame-item canvas {
-      width: 228px !important;
-      height: 228px !important;
+      width: 230px !important;
+      height: 230px !important;
       image-rendering: pixelated;
+    }
+
+    /* Caption below QR like sample image: RG CEA7 | 3 / 86 */
+    .qr-caption {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #111827;
+      letter-spacing: 0.5px;
+      font-family: monospace, sans-serif;
     }
 
     .player-info {
@@ -372,7 +383,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container -->
+      <!-- QR Stage Container (Sample Image Layout with White Margin Quiet Zone & Caption) -->
       <div class="qr-stage" id="qrStage">
         <!-- Pre-rendered QR frames will be injected here -->
       </div>
@@ -490,7 +501,7 @@
       return unescape(encodeURIComponent(str));
     }
 
-    // Prepare QR Chunks & Pre-render All Frames Direct in DOM
+    // Prepare QR Chunks & Pre-render All Frames with Quiet Zone & Caption
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
@@ -518,24 +529,32 @@
       qrStage.innerHTML = "";
       frameElements = [];
 
-      // Direct DOM rendering (Fixes blank canvas cloneNode issue!)
+      // Render QR Frames with Quiet Zone Margin + Caption ("RG CEA7 | 3 / 86")
       qrObjects.forEach((rawPayload, idx) => {
         const frameItem = document.createElement("div");
         frameItem.className = "qr-frame-item";
         frameItem.style.display = idx === 0 ? "flex" : "none";
 
+        const qrContainer = document.createElement("div");
         const safePayload = toUTF8(rawPayload);
 
         try {
-          new QRCode(frameItem, {
+          new QRCode(qrContainer, {
             text: safePayload,
-            width: 228,
-            height: 228,
+            width: 230,
+            height: 230,
             correctLevel: QRCode.CorrectLevel.L
           });
         } catch (err) {
           console.error("QR Generation error on frame", idx, err);
         }
+
+        const caption = document.createElement("div");
+        caption.className = "qr-caption";
+        caption.textContent = `RG ${sessionId} | ${idx + 1} / ${totalCount}`;
+
+        frameItem.appendChild(qrContainer);
+        frameItem.appendChild(caption);
 
         qrStage.appendChild(frameItem);
         frameElements.push(frameItem);
