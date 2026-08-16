@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>배민 텍스트 배달 발신기 - QR 슬라이드/비디오 전송기</title>
+  <!-- QRCode.js CDN for client-side QR generation -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+  <style>
+    :root {
+      --bg-main: #0a0f1d;
+      --bg-card: #161c2e;
+      --bg-card-hover: #1f273e;
+      --accent-mint: #0cefd3;
+      --accent-mint-glow: rgba(12, 239, 211, 0.4);
+      --accent-mint-dark: #05b8a2;
+      --accent-red: #ef4444;
+      --text-main: #ffffff;
+      --text-muted: #94a3b8;
+      --text-dark: #111827;
+      --border-color: #263147;
+      --radius-lg: 16px;
+      --radius-md: 12px;
+      --radius-sm: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "BAEMINWORK", "Pretendard", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 16px;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 520px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* Header */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg-card);
+      padding: 16px 20px;
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .title-group h1 {
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      letter-spacing: -0.5px;
+    }
+
+    .title-group h1 span.mint {
+      color: var(--accent-mint);
+    }
+
+    .session-badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: rgba(12, 239, 211, 0.12);
+      color: var(--accent-mint);
+      border: 1px solid rgba(12, 239, 211, 0.3);
+      padding: 4px 10px;
+      border-radius: 20px;
+    }
+
+    /* Input Card */
+    .input-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .file-dropzone {
+      border: 2px dashed var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 20px;
+      text-align: center;
+      background: #0a0f1d;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .file-dropzone:hover, .file-dropzone.dragover {
+      border-color: var(--accent-mint);
+      background: rgba(12, 239, 211, 0.05);
+    }
+
+    .file-dropzone input[type="file"] {
+      display: none;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 100px;
+      background: #0a0f1d;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-main);
+      padding: 12px;
+      font-size: 0.9rem;
+      line-height: 1.5;
+      resize: vertical;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent-mint);
+    }
+
+    /* Controls Grid */
+    .controls-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .control-item {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-item label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-muted);
+    }
+
+    .control-item input[type="range"] {
+      accent-color: var(--accent-mint);
+      cursor: pointer;
+    }
+
+    .control-item .val-label {
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--accent-mint);
+      align-self: flex-end;
+    }
+
+    /* QR Player Section */
+    .player-card {
+      background: var(--bg-card);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .qr-stage {
+      width: 260px;
+      height: 260px;
+      background: #ffffff;
+      padding: 16px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 24px var(--accent-mint-glow);
+      position: relative;
+    }
+
+    .qr-stage img, .qr-stage canvas {
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .player-info {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      align-items: center;
+    }
+
+    .info-status {
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .info-chunk {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: var(--accent-mint);
+    }
+
+    .progress-bar-bg {
+      width: 100%;
+      height: 10px;
+      background: #090e1b;
+      border-radius: 5px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #0cefd3, #2563eb);
+      border-radius: 5px;
+      transition: width 0.15s linear;
+    }
+
+    .btn-group {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 18px;
+      font-size: 0.95rem;
+      font-weight: 700;
+      border-radius: var(--radius-md);
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      user-select: none;
+      flex: 1;
+    }
+
+    .btn:active {
+      transform: scale(0.97);
+    }
+
+    .btn-mint {
+      background-color: var(--accent-mint);
+      color: var(--text-dark);
+      box-shadow: 0 4px 16px var(--accent-mint-glow);
+    }
+
+    .btn-secondary {
+      background-color: #222b40;
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+    }
+
+    .btn-danger {
+      background-color: rgba(239, 68, 68, 0.12);
+      color: var(--accent-red);
+      border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="title-group">
+        <h1>🛵 배민 <span class="mint">QR 비디오</span> 발신기</h1>
+      </div>
+      <div id="sessionBadge" class="session-badge">
+        세션 ID: <span id="sessionIdDisplay">READY</span>
+      </div>
+    </header>
+
+    <!-- Input Card -->
+    <div class="input-card">
+      <div class="card-title">
+        <span>📄 전송할 파일 또는 텍스트 입력</span>
+      </div>
+
+      <!-- File Dropzone -->
+      <div class="file-dropzone" id="dropzone">
+        <svg width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="color: var(--accent-mint);">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/>
+        </svg>
+        <span id="fileNameDisplay" style="font-weight: 700;">여기를 클릭하거나 파일을 드래그하여 업로드하세요</span>
+        <span style="font-size: 0.78rem; color: var(--text-muted);">(.txt, 문서, 이미지 등 모든 파일 지원)</span>
+        <input type="file" id="fileInput">
+      </div>
+
+      <textarea id="textInput" placeholder="또는 전송하고 싶은 텍스트를 직접 입력하거나 붙여넣으세요..."></textarea>
+
+      <!-- Settings Grid -->
+      <div class="controls-grid">
+        <div class="control-item">
+          <div style="display: flex; justify-content: space-between;">
+            <label for="chunkSizeInput">QR 조각 크기</label>
+            <span class="val-label" id="chunkSizeLabel">80자</span>
+          </div>
+          <input type="range" id="chunkSizeInput" min="30" max="250" value="80">
+        </div>
+
+        <div class="control-item">
+          <div style="display: flex; justify-content: space-between;">
+            <label for="fpsInput">전송 속도 (FPS)</label>
+            <span class="val-label" id="fpsLabel">5 FPS</span>
+          </div>
+          <input type="range" id="fpsInput" min="1" max="15" value="5">
+        </div>
+      </div>
+
+      <button id="generateBtn" class="btn btn-mint">
+        🎬 QR 비디오 생성 및 재생 준비
+      </button>
+    </div>
+
+    <!-- QR Player Card -->
+    <div class="player-card" id="playerCard" style="opacity: 0.5; pointer-events: none;">
+      <div class="player-info">
+        <span class="info-status" id="playerStatus">대기 중</span>
+        <span class="info-chunk" id="chunkCounter">0 / 0</span>
+      </div>
+
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="playerProgress"></div>
+      </div>
+
+      <!-- QR Canvas Container -->
+      <div class="qr-stage" id="qrStage">
+        <div id="qrcode"></div>
+      </div>
+
+      <div class="btn-group">
+        <button id="prevBtn" class="btn btn-secondary">◀️ 이전</button>
+        <button id="playBtn" class="btn btn-mint">▶️ 재생</button>
+        <button id="nextBtn" class="btn btn-secondary">다음 ▶️</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // DOM Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileNameDisplay = document.getElementById('fileNameDisplay');
+    const textInput = document.getElementById('textInput');
+    const chunkSizeInput = document.getElementById('chunkSizeInput');
+    const chunkSizeLabel = document.getElementById('chunkSizeLabel');
+    const fpsInput = document.getElementById('fpsInput');
+    const fpsLabel = document.getElementById('fpsLabel');
+    const generateBtn = document.getElementById('generateBtn');
+    const sessionIdDisplay = document.getElementById('sessionIdDisplay');
+
+    const playerCard = document.getElementById('playerCard');
+    const playerStatus = document.getElementById('playerStatus');
+    const chunkCounter = document.getElementById('chunkCounter');
+    const playerProgress = document.getElementById('playerProgress');
+    const qrcodeContainer = document.getElementById('qrcode');
+    const playBtn = document.getElementById('playBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    // App State
+    let payloadText = "";
+    let sessionId = "";
+    let chunks = [];
+    let qrObjects = [];
+    let currentIndex = 0;
+    let isPlaying = false;
+    let playIntervalId = null;
+
+    // QRCode Instance
+    let qrcode = new QRCode(qrcodeContainer, {
+      width: 228,
+      height: 228,
+      correctLevel: QRCode.CorrectLevel.L
+    });
+
+    // Slider Label Sync
+    chunkSizeInput.addEventListener('input', () => {
+      chunkSizeLabel.textContent = `${chunkSizeInput.value}자`;
+    });
+    fpsInput.addEventListener('input', () => {
+      fpsLabel.textContent = `${fpsInput.value} FPS`;
+      if (isPlaying) {
+        startPlayback();
+      }
+    });
+
+    // Dropzone & File Handler
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropzone.classList.add('dragover');
+    });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) {
+        handleFileSelect(e.dataTransfer.files[0]);
+      }
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFileSelect(e.target.files[0]);
+      }
+    });
+
+    function handleFileSelect(file) {
+      fileNameDisplay.textContent = `📁 선택됨: ${file.name} (${(file.size / 1024).toFixed(1)} KB)`;
+      
+      const reader = new FileReader();
+      // Check if text file or binary
+      reader.onload = (e) => {
+        textInput.value = e.target.result;
+      };
+      reader.readAsText(file);
+    }
+
+    // Generate Random 4-character Hex Session ID
+    function generateSessionId() {
+      return Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0');
+    }
+
+    // Prepare QR Chunks & Start Player
+    generateBtn.addEventListener('click', () => {
+      const rawText = textInput.value;
+      if (!rawText || rawText.trim().length === 0) {
+        alert("전송할 파일 또는 텍스트를 입력해 주세요!");
+        return;
+      }
+
+      sessionId = generateSessionId();
+      sessionIdDisplay.textContent = sessionId;
+
+      const chunkSize = parseInt(chunkSizeInput.value, 10);
+      chunks = [];
+
+      // Split raw text into chunks of chunkSize
+      for (let i = 0; i < rawText.length; i += chunkSize) {
+        chunks.push(rawText.substring(i, i + chunkSize));
+      }
+
+      const totalCount = chunks.length;
+
+      // Build RG payload array: RG:<SessionID>:<Index>:<TotalCount>:<Content>
+      qrObjects = chunks.map((content, index) => {
+        return `RG:${sessionId}:${index}:${totalCount}:${content}`;
+      });
+
+      currentIndex = 0;
+      playerCard.style.opacity = '1';
+      playerCard.style.pointerEvents = 'auto';
+
+      renderFrame(0);
+      startPlayback();
+    });
+
+    // Render single QR frame
+    function renderFrame(index) {
+      if (qrObjects.length === 0) return;
+
+      currentIndex = index;
+      const total = qrObjects.length;
+      const payload = qrObjects[index];
+
+      qrcode.makeCode(payload);
+
+      chunkCounter.textContent = `${index + 1} / ${total}`;
+      playerProgress.style.width = `${((index + 1) / total) * 100}%`;
+      playerStatus.textContent = isPlaying ? "🛵 QR 연속 재생 중..." : "일시 정지";
+    }
+
+    // Playback Loop
+    function startPlayback() {
+      if (playIntervalId) clearInterval(playIntervalId);
+      
+      isPlaying = true;
+      playBtn.innerHTML = '⏸️ 일시 정지';
+      playBtn.className = 'btn btn-secondary';
+
+      const fps = parseInt(fpsInput.value, 10);
+      const intervalMs = Math.round(1000 / fps);
+
+      playIntervalId = setInterval(() => {
+        currentIndex = (currentIndex + 1) % qrObjects.length;
+        renderFrame(currentIndex);
+      }, intervalMs);
+    }
+
+    function stopPlayback() {
+      if (playIntervalId) {
+        clearInterval(playIntervalId);
+        playIntervalId = null;
+      }
+      isPlaying = false;
+      playBtn.innerHTML = '▶️ 재생';
+      playBtn.className = 'btn btn-mint';
+      playerStatus.textContent = "일시 정지";
+    }
+
+    playBtn.addEventListener('click', () => {
+      if (isPlaying) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    prevBtn.addEventListener('click', () => {
+      stopPlayback();
+      const newIndex = (currentIndex - 1 + qrObjects.length) % qrObjects.length;
+      renderFrame(newIndex);
+    });
+
+    nextBtn.addEventListener('click', () => {
+      stopPlayback();
+      const newIndex = (currentIndex + 1) % qrObjects.length;
+      renderFrame(newIndex);
+    });
+  </script>
+</body>
+</html>
