@@ -707,12 +707,16 @@
       }
     }
 
-    // Payload Parsing Logic
+    // Robust Payload Parsing Logic
     // Format: RG:<SessionID>:<Index>:<TotalCount>:<Content>
     function parsePayload(rawText) {
-      if (!rawText || !rawText.startsWith("RG:")) return null;
+      if (!rawText) return null;
 
-      const parts = rawText.split(":");
+      // Handle any whitespace/newline prepending
+      const trimmed = rawText.trim();
+      if (!trimmed.startsWith("RG:")) return null;
+
+      const parts = trimmed.split(":");
       if (parts.length < 5) return null;
 
       const sessionId = parts[1].trim();
