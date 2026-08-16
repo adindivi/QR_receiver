@@ -574,7 +574,7 @@
     let stream = null;
     let isScanning = false;
     let animFrameId = null;
-    let lastInvalidFormatNoticeTime = 0;
+    let lastNoticeTime = 0;
 
     let currentSessionId = null;
     let totalChunks = null;
@@ -736,10 +736,10 @@
       if (!parsed) {
         // Show feedback if a non-RG format QR code is detected
         const now = Date.now();
-        if (now - lastInvalidFormatNoticeTime > 2500) {
-          lastInvalidFormatNoticeTime = now;
+        if (now - lastNoticeTime > 2500) {
+          lastNoticeTime = now;
           const snippet = rawText.length > 25 ? rawText.substring(0, 25) + '...' : rawText;
-          statusMsg.textContent = `⚠️ 규격 외 QR 스캔됨 ("${snippet}") - RG:로 시작해야 합니다`;
+          statusMsg.textContent = `⚠️ 규격 외 QR ("${snippet}") - RG:로 시작해야 합니다`;
         }
         return;
       }
@@ -761,13 +761,13 @@
         return;
       }
 
-      // Check if new chunk
+      // Check if chunk is new or duplicate
       if (!receivedChunks.has(index)) {
         receivedChunks.set(index, content);
         
         // Haptic feedback if supported
         if (navigator.vibrate) {
-          navigator.vibrate(40);
+          navigator.vibrate(50);
         }
 
         updateProgressUI();
@@ -776,6 +776,13 @@
         // Check if all chunks received
         if (receivedChunks.size === totalChunks) {
           onComplete();
+        }
+      } else {
+        // Already received duplicate chunk notification
+        const now = Date.now();
+        if (now - lastNoticeTime > 2000) {
+          lastNoticeTime = now;
+          statusMsg.textContent = `⚡ 이미 수신된 조각입니다 (#${index + 1}/${totalChunks}) - 다음 QR을 비춰주세요!`;
         }
       }
     }
@@ -810,7 +817,7 @@
       progressFill.style.width = `${percent}%`;
 
       if (!isCompleted) {
-        statusMsg.textContent = `🛵 조각 텍스트 배달 중! (${currentCount} / ${totalChunks} 조각 도착)`;
+        statusMsg.textContent = `🎉 새로운 조각(#${receivedChunks.size}) 수신 완료! (${currentCount} / ${totalChunks})`;
       }
     }
 
