@@ -581,6 +581,16 @@
     let receivedChunks = new Map(); // Map<index (number), content (string)>
     let isCompleted = false;
 
+    // Safe UTF-8 Decoder (Fixes garbled special characters like ì¹´ë©”ë ¼)
+    function decodeUTF8Safe(str) {
+      if (!str) return str;
+      try {
+        return decodeURIComponent(escape(str));
+      } catch (e) {
+        return str;
+      }
+    }
+
     // Ensure playsinline for iOS Safari
     video.setAttribute('playsinline', 'true');
     video.setAttribute('webkit-playsinline', 'true');
@@ -615,7 +625,6 @@
         try {
           stream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
-          // Fallback to standard video
           stream = await navigator.mediaDevices.getUserMedia({ video: true });
         }
 
@@ -721,16 +730,19 @@
       const index = parseInt(parts[2], 10);
       const totalCount = parseInt(parts[3], 10);
       // Rejoin remaining parts in case content itself contains colons
-      const content = parts.slice(4).join(":");
+      let content = parts.slice(4).join(":");
 
       if (!sessionId || isNaN(index) || isNaN(totalCount) || totalCount <= 0 || index < 0 || index >= totalCount) {
         return null;
       }
 
+      // Automatically decode garbled UTF-8 special characters back to clean Korean
+      content = decodeUTF8Safe(content);
+
       return { sessionId, index, totalCount, content };
     }
 
-    // Handle Scanned QR Data with Smart Auto-Session Reset!
+    // Handle Scanned QR Data with Smart Auto-Session Reset
     function handleScannedData(rawText) {
       if (isCompleted) return;
 
@@ -748,7 +760,7 @@
       const { sessionId, index, totalCount, content } = parsed;
 
       // Smart Auto Session Switch:
-      // If no session locked OR scanning a NEW session starting at index 0 (or new session QR scanned), auto reset session!
+      // If no session locked OR scanning a NEW session starting at index 0, auto reset session!
       if (currentSessionId === null || (sessionId !== currentSessionId && index === 0)) {
         currentSessionId = sessionId;
         totalChunks = totalCount;
@@ -762,7 +774,6 @@
         
         initGrid(totalCount);
       } else if (sessionId !== currentSessionId) {
-        // Different session notification
         const now = Date.now();
         if (now - lastNoticeTime > 2000) {
           lastNoticeTime = now;
