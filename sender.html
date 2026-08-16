@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>배민 텍스트 배달 발신기 - QR 슬라이드/비디오 전송기</title>
-  <!-- Modern QRCode Library CDN (Same engine as sample_qr.png!) -->
-  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <!-- Standard Reliable QRCode Library CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <style>
     :root {
       --bg-main: #0a0f1d;
@@ -215,7 +215,7 @@
       gap: 16px;
     }
 
-    .qr-frame-item img {
+    .qr-frame-item img, .qr-frame-item canvas {
       width: 240px !important;
       height: 240px !important;
       image-rendering: pixelated;
@@ -384,7 +384,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container (Identical PNG Data URL engine as sample_qr.png) -->
+      <!-- QR Stage Container -->
       <div class="qr-stage" id="qrStage">
         <!-- Pre-rendered QR frames will be injected here -->
       </div>
@@ -497,10 +497,15 @@
       return Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0');
     }
 
-    // Prepare QR Chunks & Pre-render Data URL Frames (100% async robust engine)
+    // Safe UTF-8 String for QRCode
+    function toUTF8(str) {
+      return unescape(encodeURIComponent(str));
+    }
+
+    // Prepare QR Chunks & Synchronous Pre-render Frames using standard QRCodejs
     generateBtn.addEventListener('click', prepareQRVideo);
 
-    async function prepareQRVideo() {
+    function prepareQRVideo() {
       stopPlayback();
       const rawText = textInput.value;
       if (!rawText || rawText.trim().length === 0) {
@@ -508,8 +513,10 @@
         return;
       }
 
-      generateBtn.disabled = true;
-      generateBtn.textContent = "⏳ QR 비디오 생성 중...";
+      if (typeof QRCode === 'undefined') {
+        alert("QR 코드 라이브러리를 로딩 중입니다. 잠시 후 다시 시도해 주세요!");
+        return;
+      }
 
       try {
         sessionId = generateSessionId();
@@ -526,35 +533,31 @@
         qrStage.innerHTML = "";
         frameElements = [];
 
-        // Generate high-resolution PNG Data URL frames concurrently (same engine as sample_qr.png!)
-        const framePromises = qrObjects.map(async (rawPayload, idx) => {
+        qrObjects.forEach((rawPayload, idx) => {
           const frameItem = document.createElement("div");
           frameItem.className = "qr-frame-item";
           frameItem.style.display = idx === 0 ? "flex" : "none";
 
-          const img = document.createElement("img");
-          img.alt = `QR Frame ${idx + 1}`;
+          const qrContainer = document.createElement("div");
+          const safePayload = toUTF8(rawPayload);
 
-          const dataUrl = await QRCode.toDataURL(rawPayload, {
+          new QRCode(qrContainer, {
+            text: safePayload,
             width: 240,
-            margin: 4,
-            color: { dark: '#000000', light: '#ffffff' },
-            errorCorrectionLevel: 'L'
+            height: 240,
+            correctLevel: QRCode.CorrectLevel.L
           });
-
-          img.src = dataUrl;
 
           const caption = document.createElement("div");
           caption.className = "qr-caption";
           caption.textContent = `RG ${sessionId} | ${idx + 1} / ${totalCount}`;
 
-          frameItem.appendChild(img);
+          frameItem.appendChild(qrContainer);
           frameItem.appendChild(caption);
-          return frameItem;
-        });
 
-        frameElements = await Promise.all(framePromises);
-        frameElements.forEach(item => qrStage.appendChild(item));
+          qrStage.appendChild(frameItem);
+          frameElements.push(frameItem);
+        });
 
         currentIndex = 0;
         playerCard.style.opacity = '1';
@@ -565,9 +568,6 @@
       } catch (err) {
         console.error("QR Generation error:", err);
         alert("QR 비디오 생성 중 오류가 발생했습니다: " + err.message);
-      } finally {
-        generateBtn.disabled = false;
-        generateBtn.textContent = "🎬 QR 비디오 생성 및 재생 준비";
       }
     }
 
