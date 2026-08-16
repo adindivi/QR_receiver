@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>배민 텍스트 배달 발신기 - QR 슬라이드/비디오 전송기</title>
-  <!-- QRCode.js Library CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <!-- Modern QRCode Library CDN (Same engine as sample_qr.png!) -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <style>
     :root {
       --bg-main: #0a0f1d;
@@ -191,11 +191,11 @@
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
     }
 
-    /* Ultra-clean White Quiet Zone Card */
+    /* White Quiet Zone Card (Identical to sample_qr.png layout) */
     .qr-stage {
       width: 320px;
       background: #ffffff;
-      padding: 36px 32px 24px 32px;
+      padding: 32px 28px 20px 28px;
       border-radius: 12px;
       display: flex;
       flex-direction: column;
@@ -212,17 +212,17 @@
       flex-direction: column;
       align-items: center;
       justify-content: center;
-      gap: 18px;
+      gap: 16px;
     }
 
-    .qr-frame-item img, .qr-frame-item canvas {
+    .qr-frame-item canvas {
       width: 240px !important;
       height: 240px !important;
       image-rendering: pixelated;
       image-rendering: crisp-edges;
     }
 
-    /* Caption below QR like sample image: RG CEA7 | 3 / 86 */
+    /* Caption below QR like sample image: RG TEST | 1 / 1 */
     .qr-caption {
       font-size: 1.1rem;
       font-weight: 800;
@@ -384,7 +384,7 @@
         <div class="progress-bar-fill" id="playerProgress"></div>
       </div>
 
-      <!-- QR Stage Container (36px Quiet Zone Margin & 30-Byte Low Density QR) -->
+      <!-- QR Stage Container (Identical engine as sample_qr.png) -->
       <div class="qr-stage" id="qrStage">
         <!-- Pre-rendered QR frames will be injected here -->
       </div>
@@ -497,12 +497,7 @@
       return Math.floor(Math.random() * 0xffff).toString(16).toUpperCase().padStart(4, '0');
     }
 
-    // Safe UTF-8 String for QRCode
-    function toUTF8(str) {
-      return unescape(encodeURIComponent(str));
-    }
-
-    // Prepare QR Chunks & Pre-render Low-Density Clean Frames
+    // Prepare QR Chunks & Pre-render Frames using standard QRCode canvas engine (same as sample_qr.png!)
     generateBtn.addEventListener('click', prepareQRVideo);
 
     function prepareQRVideo() {
@@ -530,31 +525,31 @@
       qrStage.innerHTML = "";
       frameElements = [];
 
-      // Direct DOM rendering with Version 3/4 low density & wide quiet zone
+      // Render frames using modern QRCode canvas engine (Identical to sample_qr.png)
       qrObjects.forEach((rawPayload, idx) => {
         const frameItem = document.createElement("div");
         frameItem.className = "qr-frame-item";
         frameItem.style.display = idx === 0 ? "flex" : "none";
 
-        const qrContainer = document.createElement("div");
-        const safePayload = toUTF8(rawPayload);
+        const canvas = document.createElement("canvas");
 
-        try {
-          new QRCode(qrContainer, {
-            text: safePayload,
-            width: 240,
-            height: 240,
-            correctLevel: QRCode.CorrectLevel.L
-          });
-        } catch (err) {
-          console.error("QR Generation error on frame", idx, err);
-        }
+        QRCode.toCanvas(canvas, rawPayload, {
+          width: 240,
+          margin: 4,
+          color: {
+            dark: '#000000',
+            light: '#ffffff'
+          },
+          errorCorrectionLevel: 'L'
+        }, function (err) {
+          if (err) console.error("QR Canvas Error on frame", idx, err);
+        });
 
         const caption = document.createElement("div");
         caption.className = "qr-caption";
         caption.textContent = `RG ${sessionId} | ${idx + 1} / ${totalCount}`;
 
-        frameItem.appendChild(qrContainer);
+        frameItem.appendChild(canvas);
         frameItem.appendChild(caption);
 
         qrStage.appendChild(frameItem);
